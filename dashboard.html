@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tosa Dashboard</title>
+<style>
+    :root {
+  --bg: #0d1117; --card: #161b22; --surface: #1c2230; --surface-hover: #262e3e;
+  --text: #f0f6fc; --muted: #8b949e; --line: #21262d; --line-strong: #30363d;
+  --glow: rgba(88,166,255,.45); --green: #3fb950; --blue: #58a6ff; --purple: #bc8cff; --red: #ff7b72;
+  --side: 250px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; min-height: 100vh; color: var(--text);
+  font: 15px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  background:
+    radial-gradient(700px 400px at 85% -10%, rgba(188,140,255,.12), transparent 60%),
+    radial-gradient(600px 400px at 10% 110%, rgba(63,185,80,.10), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* ---------- layout ---------- */
+.app { display: grid; grid-template-columns: var(--side) 1fr; min-height: 100vh; }
+
+.sidebar {
+  position: sticky; top: 0; height: 100vh; padding: 22px 16px;
+  display: flex; flex-direction: column; gap: 6px;
+  border-right: 1px solid var(--line); background: rgba(13,17,23,.7); backdrop-filter: blur(14px);
+}
+.brand { display: flex; align-items: center; gap: 12px; padding: 4px 10px 22px; }
+.logo {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px;
+  background: linear-gradient(135deg, var(--green), var(--blue), var(--purple));
+  background-size: 200% 200%; animation: shift 6s ease infinite;
+  font-weight: 800; color: #0d1117; font-size: 20px;
+}
+@keyframes shift { 50% { background-position: 100% 100%; } }
+.brand b { display: block; font-size: 17px; }
+.brand small { color: var(--muted); font-size: 12px; }
+
+.navBtn {
+  position: relative; display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 11px 14px; border: 0; border-radius: 12px; background: transparent;
+  color: var(--muted); font-weight: 600; text-align: left; cursor: pointer;
+  transition: background .2s, color .2s, transform .2s;
+}
+.navBtn:hover { background: var(--surface); color: var(--text); transform: translateX(3px); }
+.navBtn.active { background: var(--surface); color: var(--text); }
+.navBtn.active::before {
+  content: ""; position: absolute; left: -16px; top: 20%; bottom: 20%; width: 4px;
+  border-radius: 0 4px 4px 0; background: linear-gradient(var(--green), var(--blue));
+}
+.navBtn em {
+  margin-left: auto; min-width: 26px; padding: 1px 8px; border-radius: 99px;
+  background: var(--line-strong); font-style: normal; font-size: 12px; text-align: center;
+}
+.sideFoot { margin-top: auto; padding: 14px; border: 1px dashed var(--line-strong); border-radius: 14px; font-size: 12.5px; color: var(--muted); }
+.pulse { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--green); animation: ping 2s infinite; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(63,185,80,.6); } 100% { box-shadow: 0 0 0 10px transparent; } }
+
+/* ---------- topbar ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 16px;
+  padding: 16px 32px; border-bottom: 1px solid var(--line);
+  background: rgba(13,17,23,.75); backdrop-filter: blur(14px);
+}
+.topbar h1 { margin: 0; font-size: 22px; font-weight: 800; }
+.topbar h1 span {
+  background: linear-gradient(90deg, var(--green), var(--blue), var(--purple), var(--green));
+  background-size: 300% 100%; -webkit-background-clip: text; background-clip: text;
+  color: transparent; animation: shine 6s linear infinite;
+}
+@keyframes shine { to { background-position: 300% 0; } }
+.topbar p { margin: 0; color: var(--muted); font-size: 13px; }
+.chips { margin-left: auto; display: flex; gap: 10px; }
+.chip { padding: 7px 14px; border: 1px solid var(--line-strong); border-radius: 99px; background: var(--surface); font-size: 13px; font-weight: 600; }
+.chip b { color: var(--green); font-variant-numeric: tabular-nums; }
+
+main { padding: 28px 32px 90px; max-width: 1200px; width: 100%; }
+.view { display: none; }
+.view.show { display: block; animation: fadeUp .5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.split { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+h2 { margin: 0 0 4px; font-size: 18px; }
+.muted { color: var(--muted); font-size: 13.5px; margin: 0 0 18px; }
+
+/* ---------- cards + rotating glow border ---------- */
+.card { padding: 22px; border: 1px solid var(--line-strong); border-radius: 20px; background: var(--card); }
+@property --angle { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.glow {
+  padding: 2px; border-radius: 22px; animation: rotate 5s linear infinite;
+  background: conic-gradient(from var(--angle), var(--green), var(--blue), var(--purple), var(--red), var(--green));
+}
+.glow > .card { border: 0; border-radius: 20px; }
+@keyframes rotate { to { --angle: 360deg; } }
+
+.dots { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; }
+.dots i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
+.dots i:nth-child(2) { background: #febc2e; }
+.dots i:nth-child(3) { background: #28c840; }
+.dots span { margin-left: 10px; font-size: 12px; color: var(--muted); }
+
+/* ---------- forms ---------- */
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.full { grid-column: 1 / -1; }
+label { display: block; margin-bottom: 6px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+input, select, textarea {
+  width: 100%; padding: 10px 13px; border: 1px solid var(--line-strong); border-radius: 12px;
+  background: var(--surface); transition: border-color .2s, box-shadow .25s, background .2s;
+}
+input:hover, select:hover, textarea:hover { background: var(--surface-hover); }
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--blue); box-shadow: 0 0 0 4px rgba(88,166,255,.18);
+}
+textarea { resize: vertical; font-family: ui-monospace, "Cascadia Code", Menlo, monospace; font-size: 13px; }
+textarea:not([data-raw]) { font-family: inherit; }
+select option { background: var(--card); }
+
+.btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 22px; border: 0; border-radius: 99px; background: var(--text); color: var(--bg);
+  font-weight: 700; cursor: pointer; overflow: hidden; transition: gap .2s, transform .2s, filter .2s;
+}
+.btn:hover { gap: 14px; transform: translateY(-2px) scale(1.03); }
+.btn:active { transform: scale(.96); }
+.btn.busy { pointer-events: none; opacity: .7; }
+.btn.busy::after {
+  content: ""; width: 14px; height: 14px; border: 2px solid var(--bg); border-top-color: transparent;
+  border-radius: 50%; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.btn.ghost { background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); }
+.btn.danger { background: rgba(255,123,114,.12); color: var(--red); border: 1px solid rgba(255,123,114,.3); padding: 7px 14px; font-size: 13px; }
+.btn.danger:hover { background: var(--red); color: var(--bg); }
+.btn.sm { padding: 7px 14px; font-size: 13px; }
+
+/* ---------- lists ---------- */
+.toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+.toolbar select { max-width: 260px; }
+.list { display: grid; gap: 12px; }
+.item {
+  padding: 16px 18px; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--card);
+  animation: pop .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 60ms);
+  transition: transform .25s, border-color .25s, box-shadow .25s;
+}
+.item:hover { transform: translateY(-3px); border-color: var(--blue); box-shadow: 0 10px 30px -12px var(--glow); }
+@keyframes pop { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+.item h3 { margin: 0; font-size: 16px; }
+.item p { margin: 6px 0 0; color: var(--muted); font-size: 13.5px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.tag { padding: 3px 11px; border: 1px solid var(--line-strong); border-radius: 99px; background: var(--surface); font-size: 12px; font-weight: 600; }
+.tag.active { color: var(--green); border-color: rgba(63,185,80,.4); }
+.tag.draft { color: #e3b341; border-color: rgba(227,179,65,.4); }
+.tag.inactive, .tag.deprecated { color: var(--red); border-color: rgba(255,123,114,.4); }
+details { margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+summary { padding: 9px 13px; font-size: 13px; font-weight: 600; cursor: pointer; }
+pre { margin: 0; padding: 12px 14px; overflow: auto; border-top: 1px solid var(--line); font: 12.5px/1.7 ui-monospace, Menlo, monospace; color: var(--green); }
+.empty { padding: 40px 20px; border: 1px dashed var(--line-strong); border-radius: 16px; text-align: center; color: var(--muted); }
+.empty b { display: block; margin-bottom: 4px; font-size: 26px; animation: float 3s ease-in-out infinite; }
+@keyframes float { 50% { transform: translateY(-8px); } }
+
+.skeleton { height: 76px; border-radius: 16px; background: linear-gradient(90deg, var(--card) 25%, var(--surface) 50%, var(--card) 75%); background-size: 200% 100%; animation: sk 1.2s linear infinite; }
+@keyframes sk { to { background-position: -200% 0; } }
+
+/* ---------- toast + confetti ---------- */
+.toasts { position: fixed; right: 22px; bottom: 22px; z-index: 50; display: grid; gap: 10px; }
+.toast {
+  display: flex; align-items: center; gap: 10px; padding: 13px 18px; border: 1px solid var(--line-strong);
+  border-left: 4px solid var(--green); border-radius: 14px; background: var(--card);
+  box-shadow: 0 16px 40px -10px rgba(0,0,0,.6); animation: slideIn .45s cubic-bezier(.2,.8,.2,1) both;
+}
+.toast.err { border-left-color: var(--red); }
+.toast.out { animation: slideOut .35s ease forwards; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(60px) scale(.9); } }
+@keyframes slideOut { to { opacity: 0; transform: translateX(60px); } }
+.bit {
+  position: fixed; z-index: 60; width: 9px; height: 9px; border-radius: 3px; pointer-events: none;
+  animation: burst .9s cubic-bezier(.1,.7,.3,1) forwards;
+}
+@keyframes burst { to { transform: translate(var(--x), var(--y)) rotate(var(--r)); opacity: 0; } }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1000px) { .split { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar {
+    position: fixed; inset: auto 0 0 0; z-index: 20; height: auto; flex-direction: row; padding: 8px;
+    border-right: 0; border-top: 1px solid var(--line); background: rgba(13,17,23,.92);
+  }
+  .brand, .sideFoot { display: none; }
+  .navBtn { flex-direction: column; gap: 2px; padding: 8px 4px; font-size: 12px; text-align: center; }
+  .navBtn em { display: none; }
+  .navBtn.active::before { display: none; }
+  .chips { display: none; }
+  .topbar, main { padding-left: 16px; padding-right: 16px; }
+  .fields { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand"><div class="logo">T</div><div><b>Tosa</b><small>Component Library</small></div></div>
+    <button class="navBtn active" data-view="categories">📁 Categories <em id="nCat">0</em></button>
+    <button class="navBtn" data-view="components">🧩 Components <em id="nComp">0</em></button>
+    <button class="navBtn" data-view="variants">✨ Variants <em id="nVar">0</em></button>
+    <div class="sideFoot"><span class="pulse"></span>API: localhost:5000</div>
+  </aside>
+
+  <div>
+    <header class="topbar">
+      <div><h1><span>Tosa Dashboard</span></h1><p>Component Library Management</p></div>
+      <div class="chips">
+        <div class="chip">Categories <b id="chipCat">0</b></div>
+        <div class="chip">Components <b id="chipComp">0</b></div>
+      </div>
+    </header>
+
+    <main>
+      <!-- CATEGORIES -->
+      <section class="view show" id="view-categories">
+        <div class="split">
+          <div class="glow"><div class="card">
+            <div class="dots"><i></i><i></i><i></i><span>new-category</span></div>
+            <h2>Create Category</h2><p class="muted">Framework ya library add karo.</p>
+            <form id="categoryForm" data-api="categories" class="fields">
+              <div><label>Category Name</label><input data-k="name" placeholder="React" required></div>
+              <div><label>Slug</label><input data-k="slug" placeholder="react" required></div>
+              <div><label>Category Type</label>
+                <select data-k="type" required>
+                  <option value="">Select type</option><option value="framework">Framework</option><option value="library">Library</option>
+                  <option value="language">Programming Language</option><option value="markup">Markup</option><option value="styling">Styling</option>
+                  <option value="mobile">Mobile</option><option value="backend">Backend</option><option value="other">Other</option>
+                </select></div>
+              <div><label>Icon</label><input data-k="icon" placeholder="react-icon"></div>
+              <div class="full"><label>Description</label><textarea data-k="description" rows="3" placeholder="Describe this category"></textarea></div>
+              <div><label>Official Website</label><input type="url" data-k="website" placeholder="https://react.dev"></div>
+              <div><label>Documentation URL</label><input type="url" data-k="documentationUrl" placeholder="https://react.dev/learn"></div>
+              <div><label>Version</label><input data-k="version" placeholder="19.x"></div>
+              <div><label>Status</label><select data-k="status"><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option></select></div>
+              <div><label>Display Order</label><input type="number" data-k="order" value="0" min="0"></div>
+              <div class="full"><button class="btn" type="submit">Create Category ➜</button></div>
+            </form>
+          </div></div>
+          <div>
+            <div class="toolbar"><h2 style="margin:0">Categories</h2><button class="btn ghost sm" id="refreshCategories" style="margin-left:auto">↻ Refresh</button></div>
+            <div class="list" id="categoriesContainer"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- COMPONENTS -->
+      <section class="view" id="view-components">
+        <div class="split">
+          <div class="glow"><div class="card">
+            <div class="dots"><i></i><i></i><i></i><span>new-component</span></div>
+            <h2>Create Component</h2><p class="muted">Category ke andar Navbar, Button jaisa component banao.</p>
+            <form id="componentForm" data-api="components" class="fields">
+              <div class="full"><label>Category</label><select data-k="categoryId" id="componentCategory" required><option value="">Select Category</option></select></div>
+              <div><label>Component Name</label><input data-k="name" placeholder="Navbar" required></div>
+              <div><label>Slug</label><input data-k="slug" placeholder="navbar" required></div>
+              <div class="full"><label>Description</label><textarea data-k="description" rows="3" placeholder="Responsive navigation component"></textarea></div>
+              <div><label>Icon</label><input data-k="icon" placeholder="navbar-icon"></div>
+              <div><label>Status</label><select data-k="status"><option value="active">Active</option><option value="draft">Draft</option><option value="inactive">Inactive</option></select></div>
+              <div><label>Display Order</label><input type="number" data-k="order" value="0" min="0"></div>
+              <div class="full"><button class="btn" type="submit">Create Component ➜</button></div>
+            </form>
+          </div></div>
+          <div>
+            <div class="toolbar"><select id="filterCategory"><option value="">All categories</option></select></div>
+            <div class="list" id="componentsContainer"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VARIANTS -->
+      <section class="view" id="view-variants">
+        <div class="split">
+          <div class="glow"><div class="card">
+            <div class="dots"><i></i><i></i><i></i><span>new-variant</span></div>
+            <h2>Create Variant</h2><p class="muted">Code, install command aur folder structure ke saath.</p>
+            <form id="variantForm" data-api="variants" class="fields">
+              <div class="full"><label>Component</label><select data-k="componentId" id="variantComponent" required><option value="">Select Component</option></select></div>
+              <div><label>Variant Name</label><input data-k="name" placeholder="Glass Navbar" required></div>
+              <div><label>Slug</label><input data-k="slug" placeholder="glass-navbar" required></div>
+              <div class="full"><label>Short Description</label><input data-k="shortDescription" placeholder="Modern glass navigation bar"></div>
+              <div class="full"><label>Description</label><textarea data-k="description" rows="3" placeholder="Detailed description..."></textarea></div>
+              <div class="full"><label>Installation Command</label><textarea data-k="installationCommand" data-raw rows="2" placeholder="npm install ..."></textarea></div>
+              <div class="full"><label>Usage Code</label><textarea data-k="usageCode" data-raw rows="8" placeholder="import Navbar from ..."></textarea></div>
+              <div class="full"><label>Preview Code</label><textarea data-k="previewCode" data-raw rows="8" placeholder="<Navbar />"></textarea></div>
+              <div class="full"><label>Folder Structure</label><textarea data-k="folderStructure" data-raw rows="6" placeholder="src/&#10;├── components/&#10;│   └── Navbar.jsx"></textarea></div>
+              <div class="full"><label>Tags (comma separated)</label><input data-k="tags" data-list placeholder="navbar, responsive, react"></div>
+              <div><label>Version</label><input data-k="version" value="1.0.0"></div>
+              <div><label>Author</label><input data-k="author" value="Tosa"></div>
+              <div><label>Status</label><select data-k="status"><option value="active">Active</option><option value="draft">Draft</option><option value="deprecated">Deprecated</option></select></div>
+              <div><label>Display Order</label><input type="number" data-k="order" value="0" min="0"></div>
+              <div class="full"><button class="btn" type="submit">Create Variant ➜</button></div>
+            </form>
+          </div></div>
+          <div>
+            <div class="toolbar"><select id="filterComponent"><option value="">Select component to view variants</option></select></div>
+            <div class="list" id="variantsContainer"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+const API = "http://localhost:5000/api";
+const $ = id => document.getElementById(id);
+let categories = [], components = [];
+
+const esc = (v = "") => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c]));
+const slugify = v => v.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+const idOf = v => (v && v._id) || v;
+
+async function api(path, opts) {
+  const res = await fetch(`${API}/${path}`, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || "Something went wrong.");
+  return data;
+}
+
+function toast(msg, ok = true) {
+  const t = document.createElement("div");
+  t.className = "toast" + (ok ? "" : " err");
+  t.textContent = (ok ? "✅ " : "⚠️ ") + msg;
+  $("toasts").appendChild(t);
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 350); }, 3200);
+}
+
+function confetti(el) {
+  const r = el.getBoundingClientRect(), colors = ["#3fb950", "#58a6ff", "#bc8cff", "#ff7b72", "#febc2e"];
+  for (let i = 0; i < 22; i++) {
+    const b = document.createElement("i"), a = Math.random() * Math.PI * 2, d = 60 + Math.random() * 90;
+    b.className = "bit";
+    b.style.cssText = `left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px;background:${colors[i % 5]};--x:${Math.cos(a) * d}px;--y:${Math.sin(a) * d - 30}px;--r:${Math.random() * 540}deg`;
+    document.body.appendChild(b);
+    setTimeout(() => b.remove(), 900);
+  }
+}
+
+function count(id, n) {
+  [id, id.replace("n", "chip")].forEach(i => { if ($(i)) $(i).textContent = n; });
+}
+
+const empty = (icon, text) => `<div class="empty"><b>${icon}</b>${text}</div>`;
+const skeleton = () => `<div class="skeleton"></div><div class="skeleton"></div>`;
+
+/* ---------- sidebar views ---------- */
+document.querySelectorAll(".navBtn").forEach(btn => btn.addEventListener("click", () => {
+  document.querySelectorAll(".navBtn").forEach(b => b.classList.toggle("active", b === btn));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("show", v.id === "view-" + btn.dataset.view));
+}));
+
+/* ---------- generic form handling ---------- */
+function collect(form) {
+  const out = {};
+  form.querySelectorAll("[data-k]").forEach(el => {
+    let v = el.value;
+    if (el.type === "number") v = Number(v) || 0;
+    else if (el.hasAttribute("data-list")) v = v.split(",").map(s => s.trim()).filter(Boolean);
+    else if (!el.hasAttribute("data-raw")) v = v.trim();
+    out[el.dataset.k] = v;
+  });
+  return out;
+}
+
+document.querySelectorAll("form[data-api]").forEach(form => {
+  const name = form.querySelector('[data-k="name"]'), slug = form.querySelector('[data-k="slug"]');
+  name.addEventListener("input", () => { if (!slug.dataset.manual) slug.value = slugify(name.value); });
+  slug.addEventListener("input", () => { slug.dataset.manual = "1"; });
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const btn = form.querySelector(".btn");
+    btn.classList.add("busy");
+    try {
+      const data = await api(form.dataset.api, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(collect(form))
+      });
+      toast(data.message || "Created successfully");
+      confetti(btn);
+      form.reset();
+      delete slug.dataset.manual;
+      await refreshAll();
+    } catch (err) { toast(err.message, false); }
+    btn.classList.remove("busy");
+  });
+});
+
+async function remove(path, label) {
+  if (!confirm(`Are you sure you want to delete this ${label}?`)) return;
+  try { await api(path, { method: "DELETE" }); toast(`${label} deleted`); await refreshAll(); }
+  catch (err) { toast(err.message, false); }
+}
+
+/* ---------- categories ---------- */
+async function loadCategories() {
+  $("categoriesContainer").innerHTML = skeleton();
+  try {
+    categories = (await api("categories")).data || [];
+    count("nCat", categories.length);
+    const opts = categories.map(c => `<option value="${c._id}">${esc(c.name)}</option>`).join("");
+    const keep = $("filterCategory").value;
+    $("componentCategory").innerHTML = `<option value="">Select Category</option>${opts}`;
+    $("filterCategory").innerHTML = `<option value="">All categories</option>${opts}`;
+    $("filterCategory").value = keep;
+    $("categoriesContainer").innerHTML = categories.length ? categories.map((c, i) => `
+      <article class="item" style="--i:${i}">
+        <div class="row"><h3>${esc(c.name)}</h3><span class="tag ${esc(c.status)}">${esc(c.status)}</span></div>
+        <p>${esc(c.description) || "No description"}</p>
+        <div class="meta"><span class="tag">${esc(c.type)}</span><span class="tag">/${esc(c.slug)}</span>${c.version ? `<span class="tag">v${esc(c.version)}</span>` : ""}</div>
+        <div class="meta"><button class="btn danger" data-del="categories/${c._id}" data-label="category">Delete</button></div>
+      </article>`).join("") : empty("📁", "No categories yet. Create your first one!");
+  } catch (err) {
+    $("categoriesContainer").innerHTML = empty("⚠️", "Failed to load: " + esc(err.message));
+  }
+}
+
+/* ---------- components ---------- */
+async function loadComponents() {
+  try {
+    components = (await api("components")).data || [];
+    count("nComp", components.length);
+    $("variantComponent").innerHTML = `<option value="">Select Component</option>` + components.map(c => `<option value="${c._id}">${esc(c.name)}</option>`).join("");
+    const keep = $("filterComponent").value;
+    $("filterComponent").innerHTML = `<option value="">Select component to view variants</option>` + components.map(c => `<option value="${c._id}">${esc(c.name)}</option>`).join("");
+    $("filterComponent").value = keep;
+    renderComponents();
+  } catch (err) {
+    $("componentsContainer").innerHTML = empty("⚠️", "Failed to load: " + esc(err.message));
+  }
+}
+
+function renderComponents() {
+  const cat = $("filterCategory").value;
+  const list = components.filter(c => !cat || idOf(c.categoryId) === cat);
+  $("componentsContainer").innerHTML = list.length ? list.map((c, i) => `
+    <article class="item" style="--i:${i}">
+      <div class="row"><h3>${esc(c.name)}</h3><span class="tag ${esc(c.status)}">${esc(c.status)}</span></div>
+      <p>${esc(c.description) || "No description"}</p>
+      <div class="meta"><span class="tag">/${esc(c.slug)}</span>
+        <button class="btn ghost sm" data-variants="${c._id}">View Variants</button>
+        <button class="btn danger" data-del="components/${c._id}" data-label="component">Delete</button></div>
+    </article>`).join("") : empty("🧩", "No components here yet.");
+}
+
+/* ---------- variants ---------- */
+async function loadVariants() {
+  const id = $("filterComponent").value, box = $("variantsContainer");
+  if (!id) { box.innerHTML = empty("✨", "Select a component to see its variants."); return; }
+  box.innerHTML = skeleton();
+  try {
+    const list = (await api(`variants/component/${id}`)).data || [];
+    count("nVar", list.length);
+    const code = (t, v) => `<details><summary>${t}</summary><pre><code>${esc(v)}</code></pre></details>`;
+    box.innerHTML = list.length ? list.map((v, i) => `
+      <article class="item" style="--i:${i}">
+        <div class="row"><h3>${esc(v.name)}</h3><span class="tag ${esc(v.status)}">${esc(v.status)}</span></div>
+        <p>${esc(v.shortDescription)}</p>
+        <div class="meta"><span class="tag">v${esc(v.version)}</span>${(v.tags || []).map(t => `<span class="tag">#${esc(t)}</span>`).join("")}</div>
+        ${code("Description", v.description)}${code("Installation Command", v.installationCommand)}
+        ${code("Usage Code", v.usageCode)}${code("Preview Code", v.previewCode)}${code("Folder Structure", v.folderStructure)}
+        <div class="meta"><button class="btn danger" data-del="variants/${v._id}" data-label="variant">Delete</button></div>
+      </article>`).join("") : empty("✨", "No variants yet for this component.");
+  } catch (err) { box.innerHTML = empty("⚠️", "Failed to load: " + esc(err.message)); }
+}
+
+async function refreshAll() { await loadCategories(); await loadComponents(); await loadVariants(); }
+
+/* ---------- events ---------- */
+document.addEventListener("click", e => {
+  const del = e.target.closest("[data-del]");
+  if (del) return remove(del.dataset.del, del.dataset.label);
+  const v = e.target.closest("[data-variants]");
+  if (v) {
+    $("filterComponent").value = v.dataset.variants;
+    document.querySelector('[data-view="variants"]').click();
+    loadVariants();
+  }
+});
+$("filterCategory").addEventListener("change", renderComponents);
+$("filterComponent").addEventListener("change", loadVariants);
+$("refreshCategories").addEventListener("click", refreshAll);
+refreshAll();
+</script>
+</body>
+</html>
